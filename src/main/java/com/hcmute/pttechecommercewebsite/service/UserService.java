@@ -49,8 +49,8 @@ public class UserService {
     }
 
     // Gửi email reset mật khẩu
-    private void sendPasswordResetEmail(User user) {
-        emailService.sendPasswordResetEmail(user);
+    private void sendPasswordResetEmail(User user, boolean isAdmin, boolean isMobile) {
+        emailService.sendPasswordResetEmail(user, isAdmin, isMobile);
     }
 
     // Gửi thông báo email tới người dùng
@@ -128,13 +128,33 @@ public class UserService {
     // Cập nhật thông tin người dùng
     public UserDTO updateUser(String id, User user) {
         if (userRepository.existsById(id)) {
-            user.setId(id);
-            user.setUpdatedAt(new Date());
-            User updatedUser = userRepository.save(user);
+            User existingUser = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+                existingUser.setPassword(user.getPassword());
+            }
+
+            existingUser.setUsername(user.getUsername());
+            existingUser.setEmail(user.getEmail());
+            existingUser.setPhoneNumber(user.getPhoneNumber());
+            existingUser.setAvatar(user.getAvatar());
+            existingUser.setAddress(user.getAddress());
+            existingUser.setVerified(user.isVerified());
+            existingUser.setVerificationToken(user.getVerificationToken());
+            existingUser.setVerificationExpiry(user.getVerificationExpiry());
+            existingUser.setDeleted(user.isDeleted());
+            existingUser.setBlocked(user.isBlocked());
+            existingUser.setBlockReason(user.getBlockReason());
+            existingUser.setRoles(user.getRoles());
+            existingUser.setSubscribedToEmails(user.isSubscribedToEmails());
+            existingUser.setUpdatedAt(new Date());
+
+            User updatedUser = userRepository.save(existingUser);
             return convertToDTO(updatedUser);
         }
         return null;
     }
+
 
     // Xóa người dùng
     public boolean deleteUser(String id) {
@@ -276,7 +296,7 @@ public class UserService {
         }
     }
 
-    public String sendPasswordResetEmail(String email) {
+    public String sendPasswordResetEmail(String email, boolean isAdmin, boolean isMobile) {
         Optional<User> userOptional = userRepository.findByEmail(email);
 
         if (userOptional.isPresent()) {
@@ -289,7 +309,7 @@ public class UserService {
             userRepository.save(user);
 
             // Gửi email reset mật khẩu
-            sendPasswordResetEmail(user);
+            sendPasswordResetEmail(user, isAdmin, isMobile);
 
             return "Email reset mật khẩu đã được gửi tới: " + email;
         } else {
@@ -422,7 +442,9 @@ public class UserService {
                 customerRole.setPermissions(Arrays.asList("view_products", "add_to_cart"));
                 user.setRoles(Collections.singletonList(customerRole));
 
-                user = userRepository.save(user);
+                User savedUser = userRepository.save(user);
+
+                createCartForUser(savedUser);
 
                 // Gửi email thông báo đăng nhập thành công
                 emailService.sendLoginSuccessNotificationEmail(user, "Google");
@@ -520,7 +542,9 @@ public class UserService {
                 customerRole.setPermissions(Arrays.asList("view_products", "add_to_cart"));
                 user.setRoles(Collections.singletonList(customerRole));
 
-                user = userRepository.save(user);
+                User savedUser = userRepository.save(user);
+
+                createCartForUser(savedUser);
 
                 // Gửi email thông báo đăng nhập thành công
                 emailService.sendLoginSuccessNotificationEmail(user, "Facebook");

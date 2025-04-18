@@ -1,5 +1,6 @@
 package com.hcmute.pttechecommercewebsite.service;
 
+import com.hcmute.pttechecommercewebsite.model.Order;
 import com.hcmute.pttechecommercewebsite.model.Review;
 import com.hcmute.pttechecommercewebsite.model.User;
 import com.hcmute.pttechecommercewebsite.repository.UserRepository;
@@ -69,10 +70,24 @@ public class EmailService {
         }
     }
 
-    // Gửi email reset mật khẩu
-    public void sendPasswordResetEmail(User user) {
+    public void sendPasswordResetEmail(User user, boolean isAdmin, boolean isMobile) {
         String subject = "Yêu cầu thay đổi mật khẩu - PTTech";
-        String resetUrl = "http://localhost:8081/api/users/reset-password?token=" + user.getVerificationToken();
+        String resetUrl;
+
+        // Kiểm tra nếu người dùng là admin và nền tảng mobile/web
+        if (isAdmin) {
+            if (isMobile) {
+                resetUrl = "http://10.0.2.2:8088/reset-password/" + user.getVerificationToken(); // Admin mobile
+            } else {
+                resetUrl = "http://localhost:8088/reset-password/" + user.getVerificationToken(); // Admin web
+            }
+        } else {
+            if (isMobile) {
+                resetUrl = "http://10.0.2.2:8080/reset-password/" + user.getVerificationToken(); // User mobile
+            } else {
+                resetUrl = "http://localhost:8080/reset-password/" + user.getVerificationToken(); // User web
+            }
+        }
 
         String emailContent = "<html>" +
                 "<head>" +
@@ -321,6 +336,130 @@ public class EmailService {
             mailSender.send(mimeMessage);
         } catch (MessagingException e) {
             e.printStackTrace();
+        }
+    }
+
+    // Gửi email thông báo hoàn tất trả hàng
+    public void sendReturnCompletionEmail(Order order) {
+        Optional<User> userOpt = userRepository.findById(order.getUserId().toString());
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            String userEmail = user.getEmail();
+            String userName = user.getUsername();
+
+            String subject = "Thông Báo Hoàn Tất Trả Hàng - PTTech";
+
+            String emailContent = "<html>" +
+                    "<head>" +
+                    "<style>" +
+                    "body { font-family: Arial, sans-serif; color: #333; }" +
+                    ".container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9; }" +
+                    ".header { text-align: center; font-size: 24px; font-weight: bold; color: #0056b3; }" +
+                    ".content { margin-top: 20px; font-size: 16px; line-height: 1.5; }" +
+                    ".cta { display: block; margin: 20px auto; padding: 12px 20px; background-color: #0056b3; color: white; text-align: center; text-decoration: none; font-weight: bold; border-radius: 4px; }" +
+                    ".footer { text-align: center; margin-top: 40px; font-size: 14px; color: #777; }" +
+                    ".footer a { color: #0056b3; text-decoration: none; }" +
+                    "</style>" +
+                    "</head>" +
+                    "<body>" +
+                    "<div class='container'>" +
+                    "<div class='header'>Chào " + userName + ",</div>" +
+                    "<div class='content'>" +
+                    "<p>Chúng tôi vui mừng thông báo rằng yêu cầu trả hàng của bạn đã được hoàn tất. Để tiến hành hoàn trả tiền đã thanh toán cho đơn hàng, vui lòng cung cấp thông tin cần thiết như sau:</p>" +
+                    "<ul>" +
+                    "<li><b>Hình thức hoàn trả:</b> Chuyển khoản, tiền mặt, v.v.</li>" +
+                    "<li><b>Thông tin tài khoản ngân hàng:</b> (nếu có)</li>" +
+                    "<li><b>Số tiền cần hoàn trả:</b> " + order.getFinalPrice() + " VND</li>" +
+                    "</ul>" +
+                    "<p>Vui lòng trả lời email này với các thông tin trên hoặc liên hệ với bộ phận hỗ trợ khách hàng của chúng tôi để được hướng dẫn thêm.</p>" +
+                    "<p>Trân trọng,</p>" +
+                    "<p><b>PTTech</b><br>" +
+                    "Địa chỉ: 01 Đường Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh<br>" +
+                    "Website: <a href='http://localhost:8080'>www.pttech.com</a><br>" +
+                    "Email hỗ trợ: <a href='mailto:support@pttech.com'>support@pttech.com</a></p>" +
+                    "</div>" +
+                    "<div class='footer'>" +
+                    "<p>Trân trọng,</p>" +
+                    "<p><b>PTTech</b><br>" +
+                    "Địa chỉ: 01 Đường Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh<br>" +
+                    "Website: <a href='http://localhost:8080'>www.pttech.com</a><br>" +
+                    "Email hỗ trợ: <a href='mailto:support@pttech.com'>support@pttech.com</a></p>" +
+                    "</div>" +
+                    "</div>" +
+                    "</body>" +
+                    "</html>";
+
+            try {
+                MimeMessage mimeMessage = mailSender.createMimeMessage();
+                MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true);
+                helper.setTo(userEmail);
+                helper.setSubject(subject);
+                helper.setText(emailContent, true);
+                mailSender.send(mimeMessage);
+            } catch (MessagingException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    // Gửi email thông báo từ chối yêu cầu trả hàng
+    public void sendReturnRejectionEmail(Order order) {
+        Optional<User> userOpt = userRepository.findById(order.getUserId().toString());
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            String userEmail = user.getEmail();
+            String userName = user.getUsername();
+
+            String subject = "Thông Báo Từ Chối Yêu Cầu Trả Hàng - PTTech";
+
+            String emailContent = "<html>" +
+                    "<head>" +
+                    "<style>" +
+                    "body { font-family: Arial, sans-serif; color: #333; }" +
+                    ".container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9; }" +
+                    ".header { text-align: center; font-size: 24px; font-weight: bold; color: #d9534f; }" +
+                    ".content { margin-top: 20px; font-size: 16px; line-height: 1.5; }" +
+                    ".cta { display: block; margin: 20px auto; padding: 12px 20px; background-color: #d9534f; color: white; text-align: center; text-decoration: none; font-weight: bold; border-radius: 4px; }" +
+                    ".footer { text-align: center; margin-top: 40px; font-size: 14px; color: #777; }" +
+                    ".footer a { color: #d9534f; text-decoration: none; }" +
+                    "</style>" +
+                    "</head>" +
+                    "<body>" +
+                    "<div class='container'>" +
+                    "<div class='header'>Chào " + userName + ",</div>" +
+                    "<div class='content'>" +
+                    "<p>Chúng tôi rất tiếc phải thông báo rằng yêu cầu trả hàng của bạn không thể được chấp nhận trong trường hợp này. Lý do từ chối là:</p>" +
+                    "<ul>" +
+                    "<li><b>Lý do:</b> " + order.getReturnRejectionReason() + "</li>" +
+                    "</ul>" +
+                    "<p>Chúng tôi rất tiếc vì sự bất tiện này. Nếu bạn có bất kỳ câu hỏi nào hoặc cần thêm sự hỗ trợ, vui lòng liên hệ với chúng tôi qua email hoặc điện thoại.</p>" +
+                    "<p>Trân trọng,</p>" +
+                    "<p><b>PTTech</b><br>" +
+                    "Địa chỉ: 01 Đường Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh<br>" +
+                    "Website: <a href='http://localhost:8080'>www.pttech.com</a><br>" +
+                    "Email hỗ trợ: <a href='mailto:support@pttech.com'>support@pttech.com</a></p>" +
+                    "</div>" +
+                    "<div class='footer'>" +
+                    "<p>Trân trọng,</p>" +
+                    "<p><b>PTTech</b><br>" +
+                    "Địa chỉ: 01 Đường Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh<br>" +
+                    "Website: <a href='http://localhost:8080'>www.pttech.com</a><br>" +
+                    "Email hỗ trợ: <a href='mailto:support@pttech.com'>support@pttech.com</a></p>" +
+                    "</div>" +
+                    "</div>" +
+                    "</body>" +
+                    "</html>";
+
+            try {
+                MimeMessage mimeMessage = mailSender.createMimeMessage();
+                MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true);
+                helper.setTo(userEmail);
+                helper.setSubject(subject);
+                helper.setText(emailContent, true);
+                mailSender.send(mimeMessage);
+            } catch (MessagingException e) {
+                e.printStackTrace();
+            }
         }
     }
 }

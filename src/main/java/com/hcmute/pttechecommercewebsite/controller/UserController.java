@@ -113,9 +113,9 @@ public class UserController {
 
     // Endpoint gửi email để reset mật khẩu
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@RequestParam String email) {
+    public ResponseEntity<String> forgotPassword(@RequestParam String email, @RequestParam boolean isAdmin, @RequestParam boolean isMobile) {
         try {
-            String message = userService.sendPasswordResetEmail(email);
+            String message = userService.sendPasswordResetEmail(email, isAdmin, isMobile);
             return ResponseEntity.ok(message);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());

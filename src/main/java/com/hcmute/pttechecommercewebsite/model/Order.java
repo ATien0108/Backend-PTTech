@@ -60,6 +60,14 @@ public class Order {
 
     private String orderNotes;                    // Các ghi chú về đơn hàng.
 
+    private String cancellationReason;            // lý do hủy
+
+    private String returnReason;
+
+    private boolean isReturnApproved;             // Kiểm tra yêu cầu trả hàng đã được duyệt chưa.
+
+    private String returnRejectionReason;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

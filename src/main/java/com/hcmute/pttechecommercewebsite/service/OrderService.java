@@ -31,6 +31,9 @@ public class OrderService {
     @Autowired
     private ProductRepository productRepository;
 
+    @Autowired
+    private EmailService emailService;
+
     // Lấy tất cả đơn hàng (có thể lọc theo các điều kiện)
     public List<OrderDTO> getAllOrders(String paymentMethod, String paymentStatus, String orderStatus, String shippingMethod, String sortBy) {
         List<Order> orders;
@@ -112,7 +115,7 @@ public class OrderService {
         // Tính số tiền giảm giá (nếu có)
         double discountAmount = 0;
         if (orderDTO.getDiscountCode() != null && !orderDTO.getDiscountCode().isEmpty()) {
-            discountAmount = calculateDiscount(orderDTO.getDiscountCode(), totalPrice, orderDTO.getUserId());
+            discountAmount = calculateDiscount(orderDTO.getDiscountCode(), totalPrice, orderDTO.getUserId(), false);
         }
 
         double shippingPrice = orderDTO.getShippingPrice();
@@ -179,7 +182,7 @@ public class OrderService {
         }
     }
 
-    private double calculateDiscount(String discountCode, double totalPrice, String userId) {
+    private double calculateDiscount(String discountCode, double totalPrice, String userId, boolean isUpdate) {
         // Lấy mã giảm giá từ cơ sở dữ liệu
         DiscountCode discount = discountCodeRepository.findByCodeAndIsActiveTrueAndIsDeletedFalseAndValidDateRange(discountCode, new Date())
                 .orElse(null);
@@ -189,9 +192,11 @@ public class OrderService {
             return 0;
         }
 
-        // Kiểm tra xem người dùng đã sử dụng mã giảm giá chưa
-        if (discount.getUsedByUsers() != null && discount.getUsedByUsers().contains(new ObjectId(userId))) {
-            throw new RuntimeException("Mã giảm giá này đã được sử dụng bởi bạn trước đó.");
+        // Nếu không phải là hành động cập nhật, kiểm tra xem người dùng đã sử dụng mã giảm giá chưa
+        if (!isUpdate) {
+            if (discount.getUsedByUsers() != null && discount.getUsedByUsers().contains(new ObjectId(userId))) {
+                throw new RuntimeException("Mã giảm giá này đã được sử dụng bởi bạn trước đó.");
+            }
         }
 
         // Kiểm tra nếu giá trị đơn hàng (totalPrice) nhỏ hơn số tiền mua tối thiểu để áp dụng mã giảm giá
@@ -300,7 +305,7 @@ public class OrderService {
         // Tính lại giá trị giảm giá (nếu có)
         double discountAmount = 0;
         if (updatedOrderDTO.getDiscountCode() != null && !updatedOrderDTO.getDiscountCode().isEmpty()) {
-            discountAmount = calculateDiscount(updatedOrderDTO.getDiscountCode(), totalPrice, updatedOrderDTO.getUserId());
+            discountAmount = calculateDiscount(updatedOrderDTO.getDiscountCode(), totalPrice, updatedOrderDTO.getUserId(), true);
         }
 
         double shippingPrice = updatedOrderDTO.getShippingPrice();
@@ -362,7 +367,7 @@ public class OrderService {
     }
 
     // Phương thức hủy đơn hàng
-    public OrderDTO cancelOrder(String orderId) {
+    public OrderDTO cancelOrder(String orderId, String cancellationReason) {
         // Tìm đơn hàng theo id
         Order order = orderRepository.findByIdAndIsDeletedFalse(orderId)
                 .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại hoặc đã bị xóa"));
@@ -376,11 +381,91 @@ public class OrderService {
         increaseStockForOrder(order);
 
         order.setOrderStatus("Đã hủy");
-        order.setDeleted(true);
+        order.setCancellationReason(cancellationReason);
         order.setUpdatedAt(new Date());
 
         // Lưu lại đơn hàng đã cập nhật
         orderRepository.save(order);
+        return convertToDTO(order);
+    }
+
+    // Xử lý yêu cầu trả hàng và cập nhật trạng thái đơn hàng
+    public OrderDTO requestReturn(String orderId, String returnReason) {
+        // Tìm đơn hàng theo orderId
+        Order order = orderRepository.findByIdAndIsDeletedFalse(orderId)
+                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại hoặc đã bị xóa"));
+
+        // Kiểm tra trạng thái đơn hàng trước khi gửi yêu cầu trả hàng
+        if ("Đã hủy".equals(order.getOrderStatus())) {
+            throw new RuntimeException("Đơn hàng đã bị hủy, không thể yêu cầu trả hàng.");
+        }
+
+        // Kiểm tra nếu đơn hàng chưa có trạng thái "Đã giao" thì không thể yêu cầu trả hàng
+        if (!"Đã giao".equals(order.getOrderStatus())) {
+            throw new RuntimeException("Đơn hàng phải có trạng thái 'Đã giao' mới có thể yêu cầu trả hàng.");
+        }
+
+        // Cập nhật lý do trả hàng
+        order.setReturnReason(returnReason);
+
+        // Cập nhật trạng thái đơn hàng thành "Yêu cầu trả hàng"
+        order.setOrderStatus("Yêu cầu trả hàng");
+        order.setUpdatedAt(new Date());
+
+        // Lưu lại đơn hàng đã cập nhật
+        orderRepository.save(order);
+
+        return convertToDTO(order);
+    }
+
+    // Xử lý hoàn tất trả hàng
+    public OrderDTO completeReturn(String orderId) {
+        // Tìm đơn hàng theo orderId
+        Order order = orderRepository.findByIdAndIsDeletedFalse(orderId)
+                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại hoặc đã bị xóa"));
+
+        // Kiểm tra trạng thái đơn hàng
+        if (!"Yêu cầu trả hàng".equals(order.getOrderStatus())) {
+            throw new RuntimeException("Đơn hàng không thể hoàn tất trả hàng vì chưa có yêu cầu trả hàng.");
+        }
+
+        // Cập nhật lại số lượng sản phẩm vào kho
+        increaseStockForOrder(order);
+
+        // Cập nhật trạng thái đơn hàng thành "Đã trả hàng"
+        order.setOrderStatus("Đã trả hàng");
+        order.setReturnApproved(true);
+        order.setUpdatedAt(new Date());
+
+        // Lưu lại đơn hàng đã cập nhật
+        orderRepository.save(order);
+
+        // Gửi email thông báo cho người dùng
+        emailService.sendReturnCompletionEmail(order);
+
+        return convertToDTO(order);
+    }
+
+    public OrderDTO rejectReturn(String orderId, String rejectionReason) {
+        // Tìm đơn hàng theo orderId
+        Order order = orderRepository.findByIdAndIsDeletedFalse(orderId)
+                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại hoặc đã bị xóa"));
+
+        // Kiểm tra trạng thái đơn hàng để xác nhận có yêu cầu trả hàng
+        if (!"Yêu cầu trả hàng".equals(order.getOrderStatus())) {
+            throw new RuntimeException("Đơn hàng không thể từ chối trả hàng vì chưa có yêu cầu trả hàng.");
+        }
+
+        order.setOrderStatus("Đã giao");
+        order.setReturnRejectionReason(rejectionReason);
+        order.setUpdatedAt(new Date());
+
+        // Lưu lại đơn hàng đã cập nhật
+        orderRepository.save(order);
+
+        // Gửi email thông báo cho người dùng về việc từ chối trả hàng
+        emailService.sendReturnRejectionEmail(order);
+
         return convertToDTO(order);
     }
 
@@ -422,6 +507,14 @@ public class OrderService {
                 }
             }
         }
+    }
+
+    public void updateOrderPaymentStatus(String orderId, String newStatus) {
+        Order order = orderRepository.findByIdAndIsDeletedFalse(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+        order.setPaymentStatus(newStatus);
+        order.setUpdatedAt(new Date());
+        orderRepository.save(order);
     }
 
     // Xuất tất cả đơn hàng ra file Excel
@@ -608,6 +701,10 @@ public class OrderService {
                 .updatedAt(order.getUpdatedAt())
                 .isDeleted(order.isDeleted())
                 .orderNotes(order.getOrderNotes())
+                .cancellationReason(order.getCancellationReason())
+                .returnReason(order.getReturnReason())
+                .isReturnApproved(order.isReturnApproved())
+                .returnRejectionReason(order.getReturnRejectionReason())
                 .build();
     }
 

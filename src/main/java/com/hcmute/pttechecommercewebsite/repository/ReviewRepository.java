@@ -6,6 +6,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,4 +22,7 @@ public interface ReviewRepository extends MongoRepository<Review, String> {
     List<Review> findByOrderIdAndIsDeletedFalse(ObjectId orderId);  // Lấy tất cả đánh giá của đơn hàng.
 
     Optional<Review> findByIdAndIsDeletedFalse(String id);  // Lấy đánh giá theo ID và chưa bị xóa.
+
+    // Phương thức tìm đánh giá trong khoảng thời gian
+    List<Review> findByCreatedAtBetween(Date startDate, Date endDate);
 }

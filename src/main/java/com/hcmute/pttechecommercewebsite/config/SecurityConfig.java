@@ -36,18 +36,99 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.GET, "/api/**", "/images/**", "/videos/**")
-                        .permitAll()  // Cho phép truy cập không cần xác thực
-                        .requestMatchers(HttpMethod.POST, "/api/**")
+                        // Các API public không cần xác thực
+                        .requestMatchers(HttpMethod.GET, "/api/ad-images", "/api/ad-images/no-delete", "/api/ad-images/{id}", "/api/ad-images/search",
+                                "/api/brands", "/api/brands/no-delete", "/api/brands/{id}", "/api/brands/search",
+                                "/api/categories", "/api/categories/no-delete", "/api/categories/{id}", "/api/categories/search", "/api/categories/parent/{parentCategoryId}",
+                                "/api/contacts", "/api/contacts/no-delete", "/api/contacts/{id}",
+                                "/api/discount-codes", "/api/discount-codes/no-delete", "/api/discount-codes/{id}", "/api/discount-codes/search",
+                                "/api/policies", "/api/policies/no-delete", "/api/policies/{id}", "/api/policies/search",
+                                "/api/products", "/api/products/active", "/api/products/search", "/api/products/{id}", "/api/users/verify",
+                                "/api/reviews", "/api/reviews/{id}", "/api/reviews/product/{productId}", "/videos/**", "/images/**",
+                                "/api/qas/product/{productId}", "/api/qas/user/{userId}", "/api/qas")
                         .permitAll()
-                        .requestMatchers(HttpMethod.PUT, "/api/**")
+                        .requestMatchers(HttpMethod.POST, "/api/users/register", "/api/users/login", "/api/users/forgot-password",
+                                "/api/users/reset-password", "/api/users/google-login", "/api/users/facebook-login", "/api/users/subscribe")
                         .permitAll()
-                        .requestMatchers(HttpMethod.DELETE, "/api/**")
-                        .permitAll()
-                        // Quyền truy cập dựa trên vai trò
-//                        .requestMatchers("/api/secure/**").hasRole("USER")
-//                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-//                        .anyRequest().authenticated()
+
+                        .requestMatchers(HttpMethod.GET, "/api/ad-images/export-excel", "/api/discount-codes/export-excel", "/api/statistics",
+                                "/api/statistics/{id}", "/api/statistics/export-excel", "/api/inventories", "/api/inventories/filter", "/api/inventories/sorted",
+                                "/api/inventories/sorted-by-quantity", "/api/inventories/{id}", "/api/inventories/export-excel",
+                                "/api/brands/export-excel", "/api/categories/export-excel", "/api/contacts/export-excel", "/api/policies/export-excel",
+                                "/api/reviews/user/{userId}", "/api/reviews/product/{productId}", "/api/reviews/order/{orderId}", "/api/carts",
+                                "/api/carts/{cartId}", "/api/carts/user/{userId}", "/api/orders", "/api/orders/{id}", "/api/orders/order-id/{orderId}",
+                                "/api/orders/top-10-items", "/api/orders/top-10-price", "/api/orders/user/{userId}", "/api/orders/product/{productId}",
+                                "/api/orders/export-excel", "/api/products/inactive","/api/products/top-selling", "/api/products/top-rated",
+                                "/api/products/low-stock", "/api/products/export-excel", "/api/users", "/api/users/{id}", "/api/users/search?username={username}",
+                                "/api/users/export-excel")
+                        .hasAnyRole("ADMIN", "MANAGER", "MARKETING", "INVENTORY_MANAGER", "CUSTOMER_SUPPORT")
+
+                        // Phân quyền cho Role MARKETING
+                        .requestMatchers(HttpMethod.POST, "/api/ad-images", "/api/ad-images/schedule-create", "/api/ad-images/upload-images",
+                        "/api/discount-codes", "/api/discount-codes/schedule-create")
+                        .hasAnyRole("ADMIN", "MANAGER", "MARKETING")
+                        .requestMatchers(HttpMethod.PUT, "/api/ad-images/{id}", "/api/ad-images/hide/{id}", "/api/ad-images/show/{id}",
+                        "/api/discount-codes/{id}", "/api/discount-codes/hide/{id}", "/api/discount-codes/show/{id}")
+                        .hasAnyRole("ADMIN", "MANAGER", "MARKETING")
+                        .requestMatchers(HttpMethod.DELETE, "/api/ad-images/{id}", "/api/ad-images/delete-image/{id}", "/api/discount-codes/{id}")
+                        .hasAnyRole("ADMIN", "MANAGER", "MARKETING")
+
+                        // Phân quyền cho Role Inventory Manager
+                        .requestMatchers(HttpMethod.POST, "/api/inventories", "/api/products", "/api/products/schedule",
+                                "/api/products/upload-image/{productId}", "/api/products/upload-video/{productId}")
+                        .hasAnyRole("ADMIN", "MANAGER", "INVENTORY_MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/{id}", "/api/products/update-price/{productId}",
+                                "/api/products/hide/{id}", "/api/products/show/{id}")
+                        .hasAnyRole("ADMIN", "MANAGER", "INVENTORY_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/inventories/{id}", "/api/products/{id}",
+                                "/api/products/delete-image/{productId}", "/api/products/delete-video/{productId}")
+                        .hasAnyRole("ADMIN", "MANAGER", "INVENTORY_MANAGER")
+
+                        // Phân quyền cho Role Customer Support
+                        .requestMatchers(HttpMethod.POST, "/api/brands", "/api/brands/schedule-create", "/api/brands/upload-images",
+                                "/api/categories", "/api/categories/schedule-create", "/api/categories/upload-images",
+                                "/api/contacts", "/api/contacts/schedule-create", "/api/policies", "/api/policies/schedule-create",
+                                "/api/reviews/reply/{id}", "/api/users/send-notification", "/api/qas/{qaId}/answer", "/api/orders/{orderId}/complete-return")
+                        .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER_SUPPORT")
+                        .requestMatchers(HttpMethod.PUT, "/api/brands/{id}", "/api/brands/hide/{id}", "/api/brands/show/{id}",
+                                "/api/categories/{id}", "/api/categories/hide/{id}", "/api/categories/show/{id}",
+                                "/api/contacts/{id}", "/api/contacts/hide/{id}", "/api/contacts/show/{id}",
+                                "/api/policies/{id}", "/api/policies/hide/{id}", "/api/policies/show/{id}",
+                                "/api/orders/{orderId}", "/api/users/block/{id}?blockReason={blockReason}", "/api/users/unblock/{id}",
+                                "/api/qas/{qaId}/answer/{questionId}")
+                        .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER_SUPPORT")
+                        .requestMatchers(HttpMethod.DELETE, "/api/brands/{id}", "/api/brands/delete-image/{id}", "/api/categories/{id}",
+                                "/api/categories/delete-image/{id}", "/api/contacts/{id}", "/api/policies/{id}", "/api/qas/{qaId}/answer/{questionId}")
+                        .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER_SUPPORT")
+
+                        // Phân quyền cho Role Customer
+                        .requestMatchers(HttpMethod.GET, "/api/carts/user/{userId}", "/api/reviews/user/{userId}", "/api/reviews/order/{orderId}",
+                                "/api/orders/{id}", "/api/orders/order-id/{orderId}", "/api/orders/user/{userId}", "/api/orders/product/{productId}",
+                                "/api/users/{id}")
+                        .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER")
+                        .requestMatchers(HttpMethod.POST, "/api/carts/{cartId}/items", "/api/reviews", "/api/orders",
+                                "/api/orders/cancel/{orderId}", "/api/orders/{orderId}/request-return", "/api/qas", "/api/qas/{qaId}/question",
+                                "/api/orders/vnpay/{orderId}", "/api/orders/vnpay/return")
+                        .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER")
+                        .requestMatchers(HttpMethod.PUT, "api/carts/{cartId}/increase/{productId}/{variantId} ",
+                                "/api/carts/{cartId}/decrease/{productId}/{variantId}",
+                                "/api/carts/{cartId}/change-variant/{productId}/{oldVariantId}/{newVariantId}",
+                                "/api/reviews/{id}", "/api/users/{id}", "/api/qas/{qaId}/question/{questionId}")
+                        .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER")
+                        .requestMatchers(HttpMethod.DELETE,"/api/carts/{cartId}/items/{productId}/{variantId}", "/api/reviews/{id}",
+                                "/api/qas/{qaId}/question/{questionId}")
+                        .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER")
+
+                        // Phân quyền cho Role Admin
+                        .requestMatchers(HttpMethod.POST, "/api/users")
+                        .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/users/{id}", "/api/qas/{id}")
+                        .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE,"/api/users/{id}", "/api/qas/{id}")
+                        .hasRole("ADMIN")
+
+                        // Nếu không match với bất kỳ quy tắc nào thì yêu cầu xác thực
+                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .cors(withDefaults())

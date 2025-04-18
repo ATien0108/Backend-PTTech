@@ -37,6 +37,9 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     // Tìm đơn hàng có trạng thái "Chờ xác nhận" và thời gian tạo trước một thời điểm nhất định
     List<Order> findByOrderStatusAndCreatedAtBefore(String orderStatus, Date createdAt);
 
+    // Tìm đơn hàng trong một khoảng thời gian
+    List<Order> findByCreatedAtBetween(Date startDate, Date endDate);
+
     // Tìm đơn hàng theo các tiêu chí lọc và chỉ lấy đơn hàng chưa bị xóa
     List<Order> findByPaymentMethodAndIsDeletedFalse(String paymentMethod);
     List<Order> findByPaymentStatusAndIsDeletedFalse(String paymentStatus);

@@ -1,5 +1,7 @@
 package com.hcmute.pttechecommercewebsite.controller;
 
+import com.hcmute.pttechecommercewebsite.config.VNPayConfig;
+import com.hcmute.pttechecommercewebsite.util.VNPayUtil;
 import com.hcmute.pttechecommercewebsite.dto.OrderDTO;
 import com.hcmute.pttechecommercewebsite.service.OrderService;
 import org.bson.types.ObjectId;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -19,6 +22,9 @@ public class OrderController {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private VNPayConfig vnPayConfig;
 
     // Lấy tất cả đơn hàng (có thể lọc theo các điều kiện)
     @GetMapping
@@ -84,8 +90,43 @@ public class OrderController {
 
     // API hủy đơn hàng
     @PostMapping("/cancel/{orderId}")
-    public OrderDTO cancelOrder(@PathVariable String orderId) {
-        return orderService.cancelOrder(orderId);
+    public OrderDTO cancelOrder(@PathVariable String orderId, @RequestParam String cancellationReason) {
+        return orderService.cancelOrder(orderId, cancellationReason);
+    }
+
+    // API gửi yêu cầu trả hàng
+    @PostMapping("/{orderId}/request-return")
+    public ResponseEntity<OrderDTO> requestReturn(@PathVariable String orderId, @RequestParam String returnReason) {
+        try {
+            OrderDTO updatedOrder = orderService.requestReturn(orderId, returnReason);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    // API hoàn tất trả hàng
+    @PostMapping("/{orderId}/complete-return")
+    public ResponseEntity<OrderDTO> completeReturn(@PathVariable String orderId) {
+        try {
+            OrderDTO updatedOrder = orderService.completeReturn(orderId);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+    }
+
+    // API từ chối yêu cầu trả hàng
+    @PostMapping("/{orderId}/reject-return")
+    public ResponseEntity<OrderDTO> rejectReturn(
+            @PathVariable String orderId,
+            @RequestParam String rejectionReason) {
+        try {
+            OrderDTO updatedOrder = orderService.rejectReturn(orderId, rejectionReason);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
     }
 
     // API xóa đơn hàng
@@ -93,6 +134,52 @@ public class OrderController {
     public OrderDTO deleteOrder(@PathVariable String orderId) {
         return orderService.deleteOrder(orderId);
     }
+
+    @PostMapping("/vnpay/{orderId}")
+    public ResponseEntity<String> initiateVNPayPayment(@PathVariable String orderId) {
+        try {
+            OrderDTO orderDTO = orderService.getOrderById(orderId);
+            if (orderDTO == null) {
+                return ResponseEntity.badRequest().body("Đơn hàng không tồn tại");
+            }
+
+            double amount = orderDTO.getFinalPrice();
+            String paymentUrl = VNPayUtil.getPaymentUrl(orderId, amount, vnPayConfig);
+
+            return ResponseEntity.ok(paymentUrl);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Lỗi khi tạo URL thanh toán VNPay: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/vnpay/return")
+    public ResponseEntity<String> handleVNPayReturn(
+            @RequestParam String vnp_ResponseCode,
+            @RequestParam String vnp_TransactionStatus,
+            @RequestParam String vnp_TxnRef) {
+
+        // Giao dịch thành công
+        if ("00".equals(vnp_ResponseCode) && "00".equals(vnp_TransactionStatus)) {
+            orderService.updateOrderPaymentStatus(vnp_TxnRef, "Đã thanh toán");
+            return ResponseEntity.ok("Giao dịch thành công: " + vnp_TxnRef);
+        }
+
+        // Giao dịch bị nghi ngờ
+        if ("07".equals(vnp_ResponseCode)) {
+            orderService.updateOrderPaymentStatus(vnp_TxnRef, "Nghi ngờ gian lận");
+            return ResponseEntity.status(HttpStatus.OK).body("Giao dịch nghi ngờ. Đang chờ kiểm tra: " + vnp_TxnRef);
+        }
+
+        // Giao dịch bị hủy
+        if ("24".equals(vnp_ResponseCode)) {
+            orderService.updateOrderPaymentStatus(vnp_TxnRef, "Khách hàng hủy giao dịch");
+            return ResponseEntity.status(HttpStatus.OK).body("Khách hàng đã hủy giao dịch: " + vnp_TxnRef);
+        }
+
+        // Trường hợp khác
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Giao dịch thất bại: Mã lỗi " + vnp_ResponseCode);
+    }
+
 
     // API xuất danh sách đơn hàng ra file Excel
     @GetMapping("/export-excel")
