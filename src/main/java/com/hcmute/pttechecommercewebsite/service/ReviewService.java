@@ -57,6 +57,8 @@ public class ReviewService {
                 .images(review.getImages())
                 .reply(replyDTO)
                 .isDeleted(review.isDeleted())
+                .createdAt(review.getCreatedAt())
+                .updatedAt(review.getUpdatedAt())
                 .build();
     }
 

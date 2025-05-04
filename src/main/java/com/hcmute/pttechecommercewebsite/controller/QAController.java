@@ -87,28 +87,27 @@ public class QAController {
         return new ResponseEntity<>(updatedQA, HttpStatus.NO_CONTENT);
     }
 
-    // Thêm câu hỏi vào QA hiện tại
-    @PostMapping("/{qaId}/question")
-    public ResponseEntity<QADTO> addQuestionToQA(@PathVariable String qaId,
-                                                 @RequestParam String question) {
-        QADTO updatedQA = qaService.addQuestionToQA(qaId, question);
+    @PostMapping("/{qaId}/question/{parentQuestionId}/follow-up")
+    public ResponseEntity<QADTO> addFollowUpQuestion(@PathVariable String qaId,
+                                                     @PathVariable String parentQuestionId,
+                                                     @RequestParam String newQuestion) {
+        QADTO updatedQA = qaService.addFollowUpQuestion(qaId, parentQuestionId, newQuestion);
+        return new ResponseEntity<>(updatedQA, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/{qaId}/follow-up/{followUpQuestionId}/answer")
+    public ResponseEntity<QADTO> answerFollowUpQuestion(@PathVariable String qaId,
+                                                        @PathVariable String followUpQuestionId,
+                                                        @RequestParam String answer,
+                                                        @RequestParam String adminId) {
+        QADTO updatedQA = qaService.answerFollowUpQuestion(qaId, followUpQuestionId, answer, adminId);
         return new ResponseEntity<>(updatedQA, HttpStatus.OK);
     }
 
-    // Cập nhật câu hỏi trong QA
-    @PutMapping("/{qaId}/question/{questionId}")
-    public ResponseEntity<QADTO> updateQuestionInQA(@PathVariable String qaId,
-                                                    @PathVariable String questionId,
-                                                    @RequestParam String newQuestion) {
-        QADTO updatedQA = qaService.updateQuestionInQA(qaId, questionId, newQuestion);
-        return new ResponseEntity<>(updatedQA, HttpStatus.OK);
-    }
-
-    // Xóa câu hỏi trong QA
-    @DeleteMapping("/{qaId}/question/{questionId}")
-    public ResponseEntity<QADTO> deleteQuestionFromQA(@PathVariable String qaId,
-                                                      @PathVariable String questionId) {
-        QADTO updatedQA = qaService.deleteQuestionFromQA(qaId, questionId);
+    @DeleteMapping("/{qaId}/follow-up/{followUpQuestionId}")
+    public ResponseEntity<QADTO> deleteFollowUpQuestion(@PathVariable String qaId,
+                                                        @PathVariable String followUpQuestionId) {
+        QADTO updatedQA = qaService.deleteFollowUpQuestion(qaId, followUpQuestionId);
         return new ResponseEntity<>(updatedQA, HttpStatus.NO_CONTENT);
     }
 }

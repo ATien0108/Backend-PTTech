@@ -2,6 +2,7 @@ package com.hcmute.pttechecommercewebsite.service;
 
 import com.hcmute.pttechecommercewebsite.dto.CartDTO;
 import com.hcmute.pttechecommercewebsite.dto.UserDTO;
+import com.hcmute.pttechecommercewebsite.exception.ResourceNotFoundException;
 import com.hcmute.pttechecommercewebsite.model.User;
 import com.hcmute.pttechecommercewebsite.repository.UserRepository;
 import com.hcmute.pttechecommercewebsite.util.JwtUtil;
@@ -13,9 +14,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -42,6 +48,12 @@ public class UserService {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    // Thư mục lưu trữ hình ảnh người dùng
+    private String uploadDir = "upload-images/users";
+
+    // URL công khai để truy cập hình ảnh
+    private String uploadUrl = "http://localhost:8081/images/users";
 
     // Gửi email xác thực
     private void sendVerificationEmail(User user) {
@@ -131,7 +143,8 @@ public class UserService {
             User existingUser = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
 
             if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-                existingUser.setPassword(user.getPassword());
+                String encodedPassword = passwordEncoder.encode(user.getPassword());
+                existingUser.setPassword(encodedPassword);
             }
 
             existingUser.setUsername(user.getUsername());
@@ -154,7 +167,6 @@ public class UserService {
         }
         return null;
     }
-
 
     // Xóa người dùng
     public boolean deleteUser(String id) {
@@ -219,6 +231,9 @@ public class UserService {
                 customerRole.setPermissions(Arrays.asList("view_products", "add_to_cart"));
                 user.setRoles(Collections.singletonList(customerRole));
 
+                existingUser.setAvatar("");
+                existingUser.setAddress(new User.Address("","","","",""));
+
                 Calendar calendar = Calendar.getInstance();
                 calendar.add(Calendar.HOUR, 24);
                 existingUser.setVerificationExpiry(calendar.getTime());
@@ -248,6 +263,9 @@ public class UserService {
             customerRole.setRoleName("CUSTOMER");
             customerRole.setPermissions(Arrays.asList("view_products", "add_to_cart"));
             user.setRoles(Collections.singletonList(customerRole));
+
+            user.setAvatar("");
+            user.setAddress(new User.Address("","","","",""));
 
             Calendar calendar = Calendar.getInstance();
             calendar.add(Calendar.HOUR, 24);
@@ -599,6 +617,63 @@ public class UserService {
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body("Email này chưa có tài khoản. Vui lòng đăng ký.");
+        }
+    }
+
+    // Tạo một tên tệp duy nhất cho ảnh và lưu vào thư mục
+    public String uploadAvatar(MultipartFile file, String userId) throws IOException {
+        String fileName = UUID.randomUUID().toString() + "-" + file.getOriginalFilename();
+
+        Path path = Paths.get(uploadDir + File.separator + fileName);
+
+        // Tạo thư mục nếu chưa tồn tại
+        Files.createDirectories(path.getParent());
+
+        // Lưu ảnh vào thư mục
+        file.transferTo(path);
+
+        // Cập nhật URL của ảnh đại diện vào User
+        Optional<User> optionalUser = userRepository.findById(userId);
+        if (!optionalUser.isPresent()) {
+            throw new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId);
+        }
+
+        User user = optionalUser.get();
+        user.setAvatar(uploadUrl + "/" + fileName);
+        userRepository.save(user);
+
+        return uploadUrl + "/" + fileName;
+    }
+
+    // Xóa avatar của người dùng
+    public void deleteUserAvatar(String userId) throws IOException {
+        Optional<User> optionalUser = userRepository.findById(userId);
+        if (!optionalUser.isPresent()) {
+            throw new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId);
+        }
+
+        User user = optionalUser.get();
+        String avatarPath = user.getAvatar();
+
+        if (avatarPath != null && !avatarPath.isEmpty()) {
+            Path imagePath = Paths.get(uploadDir + File.separator + avatarPath.substring(avatarPath.lastIndexOf("/") + 1));
+            File fileToDelete = imagePath.toFile();
+
+            // Kiểm tra xem tệp có tồn tại không
+            if (fileToDelete.exists()) {
+                // Xóa tệp
+                boolean isDeleted = fileToDelete.delete();
+                if (!isDeleted) {
+                    throw new IOException("Không thể xóa tệp ảnh: " + avatarPath);
+                }
+                // Xóa URL avatar trong User
+                user.setAvatar(null);
+                userRepository.save(user);
+            } else {
+                throw new IOException("Tệp ảnh không tồn tại: " + avatarPath);
+            }
+        } else {
+            throw new ResourceNotFoundException("Người dùng này không có avatar để xóa");
         }
     }
 

@@ -33,4 +33,6 @@ public interface CategoryRepository extends MongoRepository<Category, String> {
 
     // Tìm tất cả danh mục có thời gian lên lịch nhỏ hơn hoặc bằng thời gian hiện tại và chưa kích hoạt
     List<Category> findByScheduledDateBeforeAndIsDeletedFalseAndIsActiveFalse(Date now);
+
+    List<Category> findByNameInIgnoreCase(List<String> names);
 }

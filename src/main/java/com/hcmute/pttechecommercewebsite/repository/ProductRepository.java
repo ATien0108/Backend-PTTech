@@ -28,6 +28,8 @@ public interface ProductRepository extends MongoRepository<Product, String> {
     // Tìm sản phẩm theo ID và không bị xóa
     Optional<Product> findByIdAndIsDeletedFalse(String id);
 
+    Optional<Product> findByProductIdAndIsDeletedFalse(String productId);
+
     // Tìm tất cả sản phẩm không bị xóa
     List<Product> findByIsDeletedFalse();
 

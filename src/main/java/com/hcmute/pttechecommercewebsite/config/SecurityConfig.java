@@ -43,23 +43,26 @@ public class SecurityConfig {
                                 "/api/contacts", "/api/contacts/no-delete", "/api/contacts/{id}",
                                 "/api/discount-codes", "/api/discount-codes/no-delete", "/api/discount-codes/{id}", "/api/discount-codes/search",
                                 "/api/policies", "/api/policies/no-delete", "/api/policies/{id}", "/api/policies/search",
-                                "/api/products", "/api/products/active", "/api/products/search", "/api/products/{id}", "/api/users/verify",
+                                "/api/products", "/api/products/active", "/api/products/search", "/api/products/{id}", "/api/products/by-product-id/{productId}", "/api/users/verify",
                                 "/api/reviews", "/api/reviews/{id}", "/api/reviews/product/{productId}", "/videos/**", "/images/**",
-                                "/api/qas/product/{productId}", "/api/qas/user/{userId}", "/api/qas")
+                                "/api/qas/product/{productId}", "/api/qas/user/{userId}", "/api/qas", "/api/users/{id}")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/register", "/api/users/login", "/api/users/forgot-password",
                                 "/api/users/reset-password", "/api/users/google-login", "/api/users/facebook-login", "/api/users/subscribe")
                         .permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/users/{id}", "/api/orders/{id}", "/api/carts/user/{userId}", "/api/orders/user/{userId}")
+                        .hasAnyRole("ADMIN", "MANAGER", "MARKETING", "INVENTORY_MANAGER", "CUSTOMER_SUPPORT", "CUSTOMER")
 
                         .requestMatchers(HttpMethod.GET, "/api/ad-images/export-excel", "/api/discount-codes/export-excel", "/api/statistics",
                                 "/api/statistics/{id}", "/api/statistics/export-excel", "/api/inventories", "/api/inventories/filter", "/api/inventories/sorted",
                                 "/api/inventories/sorted-by-quantity", "/api/inventories/{id}", "/api/inventories/export-excel",
                                 "/api/brands/export-excel", "/api/categories/export-excel", "/api/contacts/export-excel", "/api/policies/export-excel",
                                 "/api/reviews/user/{userId}", "/api/reviews/product/{productId}", "/api/reviews/order/{orderId}", "/api/carts",
-                                "/api/carts/{cartId}", "/api/carts/user/{userId}", "/api/orders", "/api/orders/{id}", "/api/orders/order-id/{orderId}",
-                                "/api/orders/top-10-items", "/api/orders/top-10-price", "/api/orders/user/{userId}", "/api/orders/product/{productId}",
+                                "/api/carts/{cartId}", "/api/orders", "/api/orders/order-id/{orderId}",
+                                "/api/orders/top-10-items", "/api/orders/top-10-price", "/api/orders/product/{productId}",
                                 "/api/orders/export-excel", "/api/products/inactive","/api/products/top-selling", "/api/products/top-rated",
-                                "/api/products/low-stock", "/api/products/export-excel", "/api/users", "/api/users/{id}", "/api/users/search?username={username}",
+                                "/api/products/low-stock", "/api/products/export-excel", "/api/users", "/api/users/search?username={username}",
                                 "/api/users/export-excel")
                         .hasAnyRole("ADMIN", "MANAGER", "MARKETING", "INVENTORY_MANAGER", "CUSTOMER_SUPPORT")
 
@@ -102,29 +105,27 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER_SUPPORT")
 
                         // Phân quyền cho Role Customer
-                        .requestMatchers(HttpMethod.GET, "/api/carts/user/{userId}", "/api/reviews/user/{userId}", "/api/reviews/order/{orderId}",
-                                "/api/orders/{id}", "/api/orders/order-id/{orderId}", "/api/orders/user/{userId}", "/api/orders/product/{productId}",
-                                "/api/users/{id}")
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/user/{userId}", "/api/reviews/order/{orderId}", "/api/orders/order-id/{orderId}", "/api/orders/product/{productId}")
                         .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER")
                         .requestMatchers(HttpMethod.POST, "/api/carts/{cartId}/items", "/api/reviews", "/api/orders",
-                                "/api/orders/cancel/{orderId}", "/api/orders/{orderId}/request-return", "/api/qas", "/api/qas/{qaId}/question",
-                                "/api/orders/vnpay/{orderId}", "/api/orders/vnpay/return")
+                                "/api/orders/cancel/{orderId}", "/api/orders/{orderId}/request-return", "/api/qas",
+                                "/api/orders/vnpay/{orderId}", "/api/orders/vnpay/return", "/api/users/upload-avatar/{userId}")
                         .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER")
                         .requestMatchers(HttpMethod.PUT, "api/carts/{cartId}/increase/{productId}/{variantId} ",
                                 "/api/carts/{cartId}/decrease/{productId}/{variantId}",
                                 "/api/carts/{cartId}/change-variant/{productId}/{oldVariantId}/{newVariantId}",
-                                "/api/reviews/{id}", "/api/users/{id}", "/api/qas/{qaId}/question/{questionId}")
+                                "/api/reviews/{id}", "/api/users/{id}",
+                                "/api/users/delete-avatar/{userId}")
                         .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER")
-                        .requestMatchers(HttpMethod.DELETE,"/api/carts/{cartId}/items/{productId}/{variantId}", "/api/reviews/{id}",
-                                "/api/qas/{qaId}/question/{questionId}")
+                        .requestMatchers(HttpMethod.DELETE,"/api/carts/{cartId}/items/{productId}/{variantId}", "/api/reviews/{id}", "/api/users/{id}")
                         .hasAnyRole("ADMIN", "MANAGER", "CUSTOMER")
 
                         // Phân quyền cho Role Admin
                         .requestMatchers(HttpMethod.POST, "/api/users")
                         .hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/users/{id}", "/api/qas/{id}")
+                            .requestMatchers(HttpMethod.PUT, "/api/qas/{id}")
                         .hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE,"/api/users/{id}", "/api/qas/{id}")
+                        .requestMatchers(HttpMethod.DELETE, "/api/qas/{id}")
                         .hasRole("ADMIN")
 
                         // Nếu không match với bất kỳ quy tắc nào thì yêu cầu xác thực

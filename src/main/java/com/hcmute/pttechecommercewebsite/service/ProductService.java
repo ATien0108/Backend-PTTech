@@ -2,7 +2,11 @@ package com.hcmute.pttechecommercewebsite.service;
 
 import com.hcmute.pttechecommercewebsite.dto.ProductDTO;
 import com.hcmute.pttechecommercewebsite.exception.ResourceNotFoundException;
+import com.hcmute.pttechecommercewebsite.model.Brand;
+import com.hcmute.pttechecommercewebsite.model.Category;
 import com.hcmute.pttechecommercewebsite.model.Product;
+import com.hcmute.pttechecommercewebsite.repository.BrandRepository;
+import com.hcmute.pttechecommercewebsite.repository.CategoryRepository;
 import com.hcmute.pttechecommercewebsite.repository.ProductRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.*;
@@ -22,21 +26,30 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final BrandRepository brandRepository;
+    private final CategoryRepository categoryRepository;
 
-    private String uploadDir = "upload-images/products";  // Thư mục hình ảnh
-    private String uploadUrl = "http://localhost:8081/images/products";  // URL công khai hình ảnh
+    private String uploadDir = "upload-images/products";
+    private String uploadUrl = "http://localhost:8081/images/products";
 
-    private String uploadVideoDir = "upload-videos/products";  // Thư mục video
-    private String uploadVideoUrl = "http://localhost:8081/videos/products";  // URL công khai video
+    private String uploadVideoDir = "upload-videos/products";
+    private String uploadVideoUrl = "http://localhost:8081/videos/products";
 
     @Autowired
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(
+            ProductRepository productRepository,
+            BrandRepository brandRepository,
+            CategoryRepository categoryRepository
+    ) {
         this.productRepository = productRepository;
+        this.brandRepository = brandRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     // Chuyển Entity thành DTO
@@ -127,15 +140,66 @@ public class ProductService {
         return products.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
-    // Lấy tất cả sản phẩm không bị xóa và không có trạng thái "inactive"
-    public List<ProductDTO> getAllActiveProducts(String sortBy, String sortOrder) {
-        Sort sort = Sort.by(Sort.Order.by(sortBy));
+    public List<ProductDTO> getAllActiveProducts(
+            String sortBy, String sortOrder,
+            List<String> brandNames, List<String> categoryNames,
+            List<String> visibilityTypes, Double minPrice, Double maxPrice) {
+
+        Sort sort = Sort.by(Sort.Order.by(sortBy != null ? sortBy : "createdAt"));
         if ("desc".equalsIgnoreCase(sortOrder)) {
             sort = sort.descending();
         }
 
         List<Product> products = productRepository.findByIsDeletedFalseAndStatusNot("inactive", sort);
-        return products.stream().map(this::convertToDTO).collect(Collectors.toList());
+        Stream<Product> stream = products.stream();
+
+        if (brandNames != null && !brandNames.isEmpty()) {
+            List<ObjectId> brandIds = brandRepository.findByNameInIgnoreCase(brandNames)
+                    .stream().map(brand -> new ObjectId(brand.getId())).collect(Collectors.toList());
+            if (!brandIds.isEmpty()) {
+                stream = stream.filter(p -> brandIds.contains(p.getBrandId()));
+            } else {
+                return Collections.emptyList();
+            }
+        }
+
+        if (categoryNames != null && !categoryNames.isEmpty()) {
+            List<ObjectId> categoryIds = categoryRepository.findByNameInIgnoreCase(categoryNames)
+                    .stream().map(category -> new ObjectId(category.getId())).collect(Collectors.toList());
+            if (!categoryIds.isEmpty()) {
+                stream = stream.filter(p -> categoryIds.contains(p.getCategoryId()));
+            } else {
+                return Collections.emptyList();
+            }
+        }
+
+        if (visibilityTypes != null && !visibilityTypes.isEmpty()) {
+            stream = stream.filter(p -> visibilityTypes.contains(p.getVisibilityType()));
+        }
+
+        if (minPrice != null) {
+            stream = stream.filter(p -> p.getPricing() != null && p.getPricing().getCurrent() >= minPrice);
+        }
+
+        if (maxPrice != null) {
+            stream = stream.filter(p -> p.getPricing() != null && p.getPricing().getCurrent() <= maxPrice);
+        }
+
+        if ("price_asc".equalsIgnoreCase(sortBy)) {
+            stream = stream.sorted((p1, p2) -> {
+                double price1 = p1.getPricing() != null ? p1.getPricing().getCurrent() : Double.MAX_VALUE;
+                double price2 = p2.getPricing() != null ? p2.getPricing().getCurrent() : Double.MAX_VALUE;
+                return Double.compare(price1, price2);
+            });
+        } else if ("price_desc".equalsIgnoreCase(sortBy)) {
+            stream = stream.sorted((p1, p2) -> {
+                double price1 = p1.getPricing() != null ? p1.getPricing().getCurrent() : Double.MIN_VALUE;
+                double price2 = p2.getPricing() != null ? p2.getPricing().getCurrent() : Double.MIN_VALUE;
+                return Double.compare(price2, price1);
+            });
+        }
+
+        return stream.map(this::convertToDTO).collect(Collectors.toList());
     }
 
     // Lấy tất cả sản phẩm không bị xóa và không hiển thị
@@ -207,6 +271,11 @@ public class ProductService {
     // Lấy sản phẩm theo ID
     public Optional<ProductDTO> getProductById(String id) {
         Optional<Product> product = productRepository.findById(id);
+        return product.map(this::convertToDTO);
+    }
+
+    public Optional<ProductDTO> getProductByProductId(String productId) {
+        Optional<Product> product = productRepository.findByProductIdAndIsDeletedFalse(productId);
         return product.map(this::convertToDTO);
     }
 

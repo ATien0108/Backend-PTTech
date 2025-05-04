@@ -91,6 +91,7 @@ public class AdImageController {
         }
     }
 
+
     // API xóa ảnh thương hiệu
     @DeleteMapping("/delete-image/{id}")
     public ResponseEntity<Object> deleteBrandImage(@PathVariable String id) {

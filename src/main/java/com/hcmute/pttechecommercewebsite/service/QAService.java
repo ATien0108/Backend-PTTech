@@ -143,67 +143,92 @@ public class QAService {
         return convertToDTO(qa);
     }
 
-    // Thêm câu hỏi mới vào QA đã tồn tại
-    public QADTO addQuestionToQA(String qaId, String question) {
-        // Lấy bản ghi QA từ ID
-        QA qa = qaRepository.findById(qaId).orElseThrow(() -> new RuntimeException("QA not found"));
+    public QADTO addFollowUpQuestion(String qaId, String parentQuestionId, String newQuestion) {
+        QA qa = qaRepository.findById(qaId)
+                .orElseThrow(() -> new RuntimeException("QA not found"));
 
-        // Tạo câu hỏi mới
-        QA.QuestionAnswer newQuestion = new QA.QuestionAnswer();
-        newQuestion.setQuestionId(new ObjectId());
-        newQuestion.setQuestion(question);
-        newQuestion.setAnswer("");
-        newQuestion.setAdminId(null);
-        newQuestion.setAnsweredAt(null);
-        newQuestion.setAnswered(false);
-        newQuestion.setFollowUpQuestions(List.of());
+        // Tìm câu hỏi cha
+        QA.QuestionAnswer parentQuestion = qa.getQuestionAnswers().stream()
+                .filter(q -> q.getQuestionId().toString().equals(parentQuestionId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Parent question not found"));
 
-        qa.getQuestionAnswers().add(newQuestion);
+        // Tạo câu hỏi tiếp theo
+        QA.QuestionAnswer followUp = QA.QuestionAnswer.builder()
+                .questionId(new ObjectId())
+                .question(newQuestion)
+                .answer("")
+                .adminId(null)
+                .answeredAt(null)
+                .isAnswered(false)
+                .followUpQuestions(List.of())
+                .build();
+
+        if (parentQuestion.getFollowUpQuestions() == null) {
+            parentQuestion.setFollowUpQuestions(new java.util.ArrayList<>());
+        }
+
+        parentQuestion.getFollowUpQuestions().add(followUp);
 
         qa = qaRepository.save(qa);
 
         return convertToDTO(qa);
     }
 
-    // Cập nhật câu hỏi trong QA
-    public QADTO updateQuestionInQA(String qaId, String questionId, String newQuestion) {
-        // Lấy bản ghi QA từ ID
-        QA qa = qaRepository.findById(qaId).orElseThrow(() -> new RuntimeException("QA not found"));
+    public QADTO answerFollowUpQuestion(String qaId, String followUpQuestionId, String answer, String adminId) {
+        QA qa = qaRepository.findById(qaId)
+                .orElseThrow(() -> new RuntimeException("QA not found"));
 
-        // Tìm câu hỏi cần cập nhật
-        QA.QuestionAnswer questionToUpdate = qa.getQuestionAnswers().stream()
-                .filter(q -> q.getQuestionId().toString().equals(questionId))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Question not found"));
+        ObjectId adminObjectId = new ObjectId(adminId);
 
-        // Cập nhật câu hỏi
-        questionToUpdate.setQuestion(newQuestion);
+        boolean answered = false;
 
-        // Lưu lại bản ghi QA sau khi cập nhật câu hỏi
+        // Lặp qua từng câu hỏi chính
+        for (QA.QuestionAnswer questionAnswer : qa.getQuestionAnswers()) {
+            if (questionAnswer.getFollowUpQuestions() != null) {
+                for (QA.QuestionAnswer followUp : questionAnswer.getFollowUpQuestions()) {
+                    if (followUp.getQuestionId().toString().equals(followUpQuestionId)) {
+                        followUp.setAnswer(answer);
+                        followUp.setAdminId(adminObjectId);
+                        followUp.setAnsweredAt(new Date());
+                        followUp.setAnswered(true);
+                        answered = true;
+                        break;
+                    }
+                }
+            }
+            if (answered) break;
+        }
+
+        if (!answered) {
+            throw new RuntimeException("Follow-up question not found");
+        }
+
         qa = qaRepository.save(qa);
 
-        // Chuyển đổi và trả về QADTO
         return convertToDTO(qa);
     }
 
-    // Xóa câu hỏi trong QA
-    public QADTO deleteQuestionFromQA(String qaId, String questionId) {
-        // Lấy bản ghi QA từ ID
-        QA qa = qaRepository.findById(qaId).orElseThrow(() -> new RuntimeException("QA not found"));
+    public QADTO deleteFollowUpQuestion(String qaId, String followUpQuestionId) {
+        QA qa = qaRepository.findById(qaId)
+                .orElseThrow(() -> new RuntimeException("QA not found"));
 
-        // Tìm câu hỏi cần xóa
-        QA.QuestionAnswer questionToDelete = qa.getQuestionAnswers().stream()
-                .filter(q -> q.getQuestionId().toString().equals(questionId))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Question not found"));
+        boolean removed = false;
 
-        // Xóa câu hỏi khỏi danh sách câu hỏi của QA
-        qa.getQuestionAnswers().remove(questionToDelete);
+        for (QA.QuestionAnswer questionAnswer : qa.getQuestionAnswers()) {
+            if (questionAnswer.getFollowUpQuestions() != null) {
+                List<QA.QuestionAnswer> followUps = questionAnswer.getFollowUpQuestions();
+                removed = followUps.removeIf(fq -> fq.getQuestionId().toString().equals(followUpQuestionId));
+                if (removed) break;
+            }
+        }
 
-        // Lưu lại bản ghi QA sau khi xóa câu hỏi
+        if (!removed) {
+            throw new RuntimeException("Follow-up question not found");
+        }
+
         qa = qaRepository.save(qa);
 
-        // Chuyển đổi và trả về QADTO
         return convertToDTO(qa);
     }
 
@@ -222,6 +247,13 @@ public class QAService {
 
     // Chuyển đổi từ model QuestionAnswer sang DTO
     private QADTO.QuestionAnswerDTO convertToQuestionAnswerDTO(QA.QuestionAnswer questionAnswer) {
+        List<QADTO.QuestionAnswerDTO> followUps = null;
+        if (questionAnswer.getFollowUpQuestions() != null) {
+            followUps = questionAnswer.getFollowUpQuestions().stream()
+                    .map(this::convertToQuestionAnswerDTO)
+                    .collect(Collectors.toList());
+        }
+
         return QADTO.QuestionAnswerDTO.builder()
                 .questionId(questionAnswer.getQuestionId() != null ? questionAnswer.getQuestionId().toString() : null)
                 .question(questionAnswer.getQuestion())
@@ -229,6 +261,7 @@ public class QAService {
                 .adminId(questionAnswer.getAdminId() != null ? questionAnswer.getAdminId().toString() : null)
                 .answeredAt(questionAnswer.getAnsweredAt())
                 .isAnswered(questionAnswer.isAnswered())
+                .followUpQuestions(followUps)
                 .build();
     }
 }

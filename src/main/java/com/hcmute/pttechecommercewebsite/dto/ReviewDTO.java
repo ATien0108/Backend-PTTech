@@ -33,6 +33,9 @@ public class ReviewDTO {
     @JsonProperty("isDeleted")
     private boolean isDeleted;                   // Đánh dấu đánh giá đã bị xóa (true: đã xóa, false: chưa xóa).
 
+    private Date createdAt;                      // Ngày người dùng để lại đánh giá.
+    private Date updatedAt;                      // Ngày cập nhật đánh giá (nếu có thay đổi).
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

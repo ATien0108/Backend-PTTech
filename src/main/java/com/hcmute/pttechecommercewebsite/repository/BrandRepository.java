@@ -29,4 +29,6 @@ public interface BrandRepository extends MongoRepository<Brand, String> {
 
     // Tìm tất cả thương hiệu có thời gian lên lịch nhỏ hơn hoặc bằng thời gian hiện tại và chưa kích hoạt
     List<Brand> findByScheduledDateBeforeAndIsDeletedFalseAndIsActiveFalse(Date now);
+
+    List<Brand> findByNameInIgnoreCase(List<String> names);
 }

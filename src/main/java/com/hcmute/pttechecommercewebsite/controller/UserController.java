@@ -1,6 +1,7 @@
 package com.hcmute.pttechecommercewebsite.controller;
 
 import com.hcmute.pttechecommercewebsite.dto.UserDTO;
+import com.hcmute.pttechecommercewebsite.exception.MessageResponse;
 import com.hcmute.pttechecommercewebsite.model.User;
 import com.hcmute.pttechecommercewebsite.service.EmailTemplateService;
 import com.hcmute.pttechecommercewebsite.service.UserService;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -197,6 +199,30 @@ public class UserController {
             }
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Có lỗi xảy ra khi làm mới token.");
+        }
+    }
+
+    // API tải ảnh avatar lên
+    @PostMapping("/upload-avatar/{userId}")
+    public ResponseEntity<MessageResponse> uploadAvatar(@RequestParam("file") MultipartFile file, @PathVariable String userId) {
+        try {
+            String avatarUrl = userService.uploadAvatar(file, userId);
+            return ResponseEntity.ok(new MessageResponse("Tải ảnh avatar lên thành công", avatarUrl));
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Lỗi khi tải ảnh avatar lên", e.getMessage()));
+        }
+    }
+
+    // API xóa avatar người dùng
+    @DeleteMapping("/delete-avatar/{userId}")
+    public ResponseEntity<Object> deleteUserAvatar(@PathVariable String userId) {
+        try {
+            userService.deleteUserAvatar(userId);
+            return new ResponseEntity<>(new MessageResponse("Xóa avatar người dùng thành công!", userId), HttpStatus.OK);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new MessageResponse("Lỗi khi xóa avatar người dùng", e.getMessage()));
         }
     }
 

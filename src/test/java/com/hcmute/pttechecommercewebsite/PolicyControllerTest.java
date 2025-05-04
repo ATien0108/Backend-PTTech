@@ -50,8 +50,8 @@ public class PolicyControllerTest {
     void getAllPoliciesSuccess() throws Exception {
         // Giả lập danh sách PolicyDTO
         List<PolicyDTO> mockPolicies = List.of(
-                new PolicyDTO("1", "Return", "Chính sách hoàn trả", "Mô tả chính sách hoàn trả", "Chi tiết chính sách", true, false, null),
-                new PolicyDTO("2", "Warranty", "Chính sách bảo hành", "Mô tả chính sách bảo hành", "Chi tiết chính sách", true, false, null)
+                new PolicyDTO("1", "Return", "Chính sách hoàn trả", "Mô tả chính sách hoàn trả", "Chi tiết chính sách", true, false, null, null, null),
+                new PolicyDTO("2", "Warranty", "Chính sách bảo hành", "Mô tả chính sách bảo hành", "Chi tiết chính sách", true, false, null, null, null)
         );
 
         // Giả lập hành động của service khi gọi getAllPolicies với tham số sắp xếp
@@ -89,7 +89,7 @@ public class PolicyControllerTest {
     @Test
     @DisplayName("Lấy chính sách theo ID thành công")
     void getPolicyByIdSuccess() throws Exception {
-        PolicyDTO mockPolicy = new PolicyDTO("1", "Return", "Chính sách hoàn trả", "Mô tả chính sách hoàn trả", "Chi tiết chính sách", true, false, null);
+        PolicyDTO mockPolicy = new PolicyDTO("1", "Return", "Chính sách hoàn trả", "Mô tả chính sách hoàn trả", "Chi tiết chính sách", true, false, null, null, null);
 
         when(policyService.getPolicyById("1")).thenReturn(Optional.of(mockPolicy));
 
@@ -117,8 +117,8 @@ public class PolicyControllerTest {
     @DisplayName("Tìm kiếm chính sách theo tiêu đề thành công")
     void searchPoliciesSuccess() throws Exception {
         List<PolicyDTO> mockPolicies = List.of(
-                new PolicyDTO("1", "Return", "Chính sách hoàn trả", "Mô tả chính sách hoàn trả", "Chi tiết chính sách", true, false, null),
-                new PolicyDTO("2", "Warranty", "Chính sách bảo hành", "Mô tả chính sách bảo hành", "Chi tiết chính sách", true, false, null)
+                new PolicyDTO("1", "Return", "Chính sách hoàn trả", "Mô tả chính sách hoàn trả", "Chi tiết chính sách", true, false, null, null, null),
+                new PolicyDTO("2", "Warranty", "Chính sách bảo hành", "Mô tả chính sách bảo hành", "Chi tiết chính sách", true, false, null, null, null)
         );
 
         when(policyService.searchPoliciesByTitle("Chính sách")).thenReturn(mockPolicies);
@@ -147,7 +147,7 @@ public class PolicyControllerTest {
     @Test
     @DisplayName("Thêm mới chính sách thành công")
     void createPolicySuccess() throws Exception {
-        PolicyDTO newPolicy = new PolicyDTO("3", "Privacy", "Chính sách bảo mật", "Mô tả chính sách bảo mật", "Chi tiết chính sách", true, false, null);
+        PolicyDTO newPolicy = new PolicyDTO("3", "Privacy", "Chính sách bảo mật", "Mô tả chính sách bảo mật", "Chi tiết chính sách", true, false, null, null, null);
 
         when(policyService.createPolicy(any(PolicyDTO.class))).thenReturn(newPolicy);
 
@@ -178,7 +178,7 @@ public class PolicyControllerTest {
     @Test
     @DisplayName("Chỉnh sửa chính sách thành công")
     void updatePolicySuccess() throws Exception {
-        PolicyDTO updatedPolicy = new PolicyDTO("1", "Return", "Chính sách hoàn trả", "Mô tả đã sửa", "Chi tiết chính sách đã sửa", true, false, null);
+        PolicyDTO updatedPolicy = new PolicyDTO("1", "Return", "Chính sách hoàn trả", "Mô tả đã sửa", "Chi tiết chính sách đã sửa", true, false, null, null, null);
 
         when(policyService.updatePolicy(eq("1"), any(PolicyDTO.class))).thenReturn(updatedPolicy);
 

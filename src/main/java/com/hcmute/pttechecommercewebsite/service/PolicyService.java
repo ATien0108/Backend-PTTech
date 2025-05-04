@@ -41,6 +41,8 @@ public class PolicyService {
                 .content(policy.getContent())
                 .isActive(policy.isActive())
                 .isDeleted(policy.isDeleted())
+                .createdAt(policy.getCreatedAt())
+                .updatedAt(policy.getUpdatedAt())
                 .build();
     }
 

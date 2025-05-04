@@ -36,5 +36,7 @@ public class PolicyDTO {
     @JsonProperty("isDeleted")
     private boolean isDeleted; // Trạng thái xóa mềm
 
+    private Date createdAt;
+    private Date updatedAt;
     private Date scheduledDate;
 }

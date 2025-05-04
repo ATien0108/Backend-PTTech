@@ -34,10 +34,19 @@ public class ProductController {
 
     // API lấy tất cả sản phẩm hoạt động
     @GetMapping("/active")
-    public ResponseEntity<List<ProductDTO>> getAllActiveProducts(
-            @RequestParam String sortBy, @RequestParam String sortOrder) {
-        List<ProductDTO> products = productService.getAllActiveProducts(sortBy, sortOrder);
-        return ResponseEntity.ok(products);
+    public ResponseEntity<List<ProductDTO>> getActiveProducts(
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder,
+            @RequestParam(required = false) List<String> brandName,
+            @RequestParam(required = false) List<String> categoryName,
+            @RequestParam(required = false) List<String> visibilityType,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice
+    ) {
+        List<ProductDTO> result = productService.getAllActiveProducts(
+                sortBy, sortOrder, brandName, categoryName, visibilityType, minPrice, maxPrice
+        );
+        return ResponseEntity.ok(result);
     }
 
     // API lấy tất cả sản phẩm không hoạt động
@@ -80,6 +89,12 @@ public class ProductController {
     @GetMapping("/{id}")
     public ResponseEntity<ProductDTO> getProductById(@PathVariable String id) {
         Optional<ProductDTO> productDTO = productService.getProductById(id);
+        return productDTO.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/by-product-id/{productId}")
+    public ResponseEntity<ProductDTO> getProductByProductId(@PathVariable String productId) {
+        Optional<ProductDTO> productDTO = productService.getProductByProductId(productId);
         return productDTO.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
